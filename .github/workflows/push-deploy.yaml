@@ -28,6 +28,7 @@ jobs:
       run: |
         skaffold config set --global local-cluster false
         # tag with git hash
+        echo $PROJECT_ID
         skaffold build --default-repo=gcr.io/$PROJECT_ID \
                        --tag=$GITHUB_SHA
         # tag as latest
