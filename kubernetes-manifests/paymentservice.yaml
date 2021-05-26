@@ -28,26 +28,27 @@ spec:
       serviceAccountName: default
       terminationGracePeriodSeconds: 5
       containers:
-      - name: server
-        image: paymentservice
-        ports:
-        - containerPort: 50051
-        env:
-        - name: PORT
-          value: "50051"
-        readinessProbe:
-          exec:
-            command: ["/bin/grpc_health_probe", "-addr=:50051"]
-        livenessProbe:
-          exec:
-            command: ["/bin/grpc_health_probe", "-addr=:50051"]
-        resources:
-          requests:
-            cpu: 100m
-            memory: 64Mi
-          limits:
-            cpu: 200m
-            memory: 128Mi
+        - name: server
+          image: paymentservice
+          imagePullPolicy: "Always"
+          ports:
+            - containerPort: 50051
+          env:
+            - name: PORT
+              value: "50051"
+          readinessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:50051"]
+          livenessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:50051"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
 ---
 apiVersion: v1
 kind: Service
@@ -58,6 +59,6 @@ spec:
   selector:
     app: paymentservice
   ports:
-  - name: grpc
-    port: 50051
-    targetPort: 50051
+    - name: grpc
+      port: 50051
+      targetPort: 50051

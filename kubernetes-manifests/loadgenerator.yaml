@@ -31,17 +31,18 @@ spec:
       terminationGracePeriodSeconds: 5
       restartPolicy: Always
       containers:
-      - name: main
-        image: loadgenerator
-        env:
-        - name: FRONTEND_ADDR
-          value: "frontend:80"
-        - name: USERS
-          value: "10"
-        resources:
-          requests:
-            cpu: 300m
-            memory: 256Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+        - name: main
+          image: loadgenerator
+          imagePullPolicy: "Always"
+          env:
+            - name: FRONTEND_ADDR
+              value: "frontend:80"
+            - name: USERS
+              value: "10"
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
