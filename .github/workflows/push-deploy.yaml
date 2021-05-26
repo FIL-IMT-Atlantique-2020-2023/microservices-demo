@@ -22,17 +22,18 @@ jobs:
   push-deploy:
     runs-on: self-hosted
     steps:
-    - uses: actions/checkout@v2
-    - name: Push latest images to GCR
-      timeout-minutes: 20
-      run: |
-        skaffold config set --global local-cluster false
-        # tag with git hash
-        echo $PROJECT_ID
-        skaffold build --default-repo=gcr.io/$PROJECT_ID \
-                       --tag=$GITHUB_SHA
-        # tag as latest
-        skaffold build --default-repo=gcr.io/$PROJECT_ID \
-                       --tag=latest
-      env:
-        PROJECT_ID: ${{ secrets.PROJECT_ID }}
+      - uses: actions/checkout@v2
+      - name: Push latest images to GCR
+        timeout-minutes: 20
+        run: |
+          skaffold config set --global local-cluster false
+          # tag with git hash
+          echo $PROJECT_ID
+          skaffold build --default-repo=gcr.io/$PROJECT_ID \
+                         --tag=$GITHUB_SHA
+          # tag as latest
+          skaffold build --default-repo=gcr.io/$PROJECT_ID \
+                         --tag=latest
+          kubectl rollout restart deploy
+        env:
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
