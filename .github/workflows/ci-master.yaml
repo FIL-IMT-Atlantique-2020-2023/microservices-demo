@@ -70,7 +70,7 @@ jobs:
       env:
         ACTIONS_ALLOW_UNSECURE_COMMANDS: true
         PROJECT_ID: "linear-ether-271411"
-        PR_CLUSTER: "onlineboutique"
+        PR_CLUSTER: "onlineboutique-pr"
         ZONE: "europe-west1-d"
     - name: Wait For Pods
       timeout-minutes: 20
