@@ -1,0 +1,11 @@
+ACCES AU GRAPHIQUE:
+Google cloud plateforme > monitoring > GKE CUSTOM 
+> Kubernetes Container - CPU usage time (filtered) [SUM]
+
+(Optionnel) LANCER LA SIMULATION DE CHARGE:
+Locust > Start new load test > 1000 total users with a 100 users spawn/sec
+-> start swarming
+
+CHANGER L'IMAGE DOCKER
+kubectl set image deployment/recommendationservice server=gcr.io/linear-ether-271411/recommendationservice-fibonacci:latest
+kubectl rollout restart deploy

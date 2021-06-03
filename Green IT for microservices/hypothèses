@@ -1,0 +1,6 @@
+- utilisation CPU: bruit de fond variant de 1 à 2%
+- trafic réseau important => des requêtes échouent (time out) => elles sont renvoyées => utilisation CPU plus importante
+
+tester avec 100 utilisateurs plutôt que 1000
+- l'utilisation supplémentaire lié à fib est plus visible
+- limite d'utilisation CPU imposée par google
