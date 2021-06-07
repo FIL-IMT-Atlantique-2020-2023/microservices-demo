@@ -386,7 +386,7 @@ main.home {
 .h-row img {
   width: 1000px;
   height: 500px;
-  margin-bottom: 45px;
+  margin-bottom: 0px;
 }
 
 .h-grid .bg-light {
