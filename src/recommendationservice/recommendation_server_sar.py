@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import os
-import random
 import time
 import traceback
 from concurrent import futures
@@ -35,7 +34,56 @@ import demo_pb2_grpc
 from grpc_health.v1 import health_pb2
 from grpc_health.v1 import health_pb2_grpc
 
+import logging
+import numpy as np
+import pandas as pd
+import hashlib
+
+from reco_utils.common.timer import Timer
+from reco_utils.dataset import movielens
+from reco_utils.dataset.python_splitters import python_stratified_split
+
+from reco_utils.recommender.sar import SAR
+
 from logger import getJSONLogger
+
+# top k items to recommend
+TOP_K = 10
+
+# Select MovieLens data size: 100k, 1m, 10m, or 20m
+MOVIELENS_DATA_SIZE = '100k'
+
+data = movielens.load_pandas_df(
+    size=MOVIELENS_DATA_SIZE
+)
+
+# Convert the float precision to 32-bit in order to reduce memory consumption
+data['rating'] = data['rating'].astype(np.float32)
+
+train, test = python_stratified_split(
+    data, ratio=0.75, col_user='userID', col_item='itemID', seed=42)
+
+train_users = len(train['userID'].unique())
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)-8s %(message)s')
+
+model = SAR(
+    col_user="userID",
+    col_item="itemID",
+    col_rating="rating",
+    col_timestamp="timestamp",
+    similarity_type="jaccard",
+    time_decay_coefficient=30,
+    timedecay_formula=True,
+    normalize=True
+)
+
+with Timer() as train_time:
+    model.fit(train)
+
+print("Took {} seconds for training.".format(train_time.interval))
+
 logger = getJSONLogger('recommendationservice-server')
 
 
@@ -72,21 +120,23 @@ def initStackdriverProfiling():
 
 class RecommendationService(demo_pb2_grpc.RecommendationServiceServicer):
     def ListRecommendations(self, request, context):
-        max_responses = 5
+        # max_responses = 5
         # fetch list of products from product catalog stub
-        cat_response = product_catalog_stub.ListProducts(demo_pb2.Empty())
-        product_ids = [x.id for x in cat_response.products]
-        filtered_products = list(set(product_ids)-set(request.product_ids))
-        num_products = len(filtered_products)
-        num_return = min(max_responses, num_products)
+        # cat_response = product_catalog_stub.ListProducts(demo_pb2.Empty())
+        # product_ids = [x.id for x in cat_response.products]
+        # filtered_products = list(set(product_ids)-set(request.product_ids))
+        # num_return = min(max_responses, num_products)
         # sample list of indicies to return
-        # Fibonacci
-        n = 1000
-        # The One-Liner
-        reduce(lambda x, _: x + [x[-2] + x[-1]], [0] * (n-2), [0, 1])
-        indices = random.sample(range(num_products), num_return)
+        user_id = 1 + int(hashlib.sha1(request.user_id.encode("utf-8")
+                                       ).hexdigest(), 16) % train_users
+        prediction = model.recommend_k_items(
+            pd.DataFrame(dict(userID=[user_id])), remove_seen=True)
+        # logger.info(prediction.head())
+        # indices = random.sample(range(num_products), num_return)
         # fetch product ids from indices
-        prod_list = [filtered_products[i] for i in indices]
+        # prod_list = [filtered_products[i] for i in indices]
+        prod_list = ['1YMWWN1N4O', 'L9ECAV7KIM',
+                     'LS4PSXUNUM', '9SIQT8TOJO', 'OLJCESPC7Z']
         logger.info(
             "[Recv ListRecommendations] product_ids={}".format(prod_list))
         # build and return response

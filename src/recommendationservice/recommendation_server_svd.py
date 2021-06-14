@@ -14,15 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Copyright(c) Microsoft Corporation. All rights reserved.
+
+# Licensed under the MIT License.
+
+
 import os
-import random
 import time
 import traceback
 from concurrent import futures
-from functools import reduce
 
 import googleclouddebugger
 import googlecloudprofiler
+import surprise
 from google.auth.exceptions import DefaultCredentialsError
 import grpc
 from opencensus.ext.stackdriver import trace_exporter as stackdriver_exporter
@@ -35,7 +39,55 @@ import demo_pb2_grpc
 from grpc_health.v1 import health_pb2
 from grpc_health.v1 import health_pb2_grpc
 
+import logging
+import numpy as np
+import hashlib
+
+from reco_utils.common.timer import Timer
+from reco_utils.dataset import movielens
+from reco_utils.dataset.python_splitters import python_stratified_split
+from reco_utils.recommender.surprise.surprise_utils import compute_ranking_predictions
+
 from logger import getJSONLogger
+
+# top k items to recommend
+TOP_K = 10
+
+# Select MovieLens data size: 100k, 1m, 10m, or 20m
+MOVIELENS_DATA_SIZE = '100k'
+
+data = movielens.load_pandas_df(
+    size=MOVIELENS_DATA_SIZE,
+    header=["userID", "itemID", "rating"]
+)
+
+
+# Convert the float precision to 32-bit in order to reduce memory consumption
+data['rating'] = data['rating'].astype(np.float32)
+
+train, test = python_stratified_split(
+    data, ratio=0.75, col_user='userID', col_item='itemID', seed=42)
+
+train_users = len(train['userID'].unique())
+
+
+# 'reader' is being used to get rating scale (for MovieLens, the scale is [1, 5]).
+# 'rating_scale' parameter can be used instead for the later version of surprise lib:
+# https://github.com/NicolasHug/Surprise/blob/master/surprise/dataset.py
+train_set = surprise.Dataset.load_from_df(
+    train, reader=surprise.Reader('ml-100k')).build_full_trainset()
+
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)-8s %(message)s')
+
+model = surprise.SVD(random_state=0, n_factors=200, n_epochs=30, verbose=True)
+
+with Timer() as train_time:
+    model.fit(train_set)
+
+print("Took {} seconds for training.".format(train_time.interval))
+
 logger = getJSONLogger('recommendationservice-server')
 
 
@@ -72,21 +124,26 @@ def initStackdriverProfiling():
 
 class RecommendationService(demo_pb2_grpc.RecommendationServiceServicer):
     def ListRecommendations(self, request, context):
-        max_responses = 5
+        # max_responses = 5
         # fetch list of products from product catalog stub
-        cat_response = product_catalog_stub.ListProducts(demo_pb2.Empty())
-        product_ids = [x.id for x in cat_response.products]
-        filtered_products = list(set(product_ids)-set(request.product_ids))
-        num_products = len(filtered_products)
-        num_return = min(max_responses, num_products)
+        # cat_response = product_catalog_stub.ListProducts(demo_pb2.Empty())
+        # product_ids = [x.id for x in cat_response.products]
+        # filtered_products = list(set(product_ids)-set(request.product_ids))
+        # num_products = len(filtered_products)
+        # num_return = min(max_responses, num_products)
         # sample list of indicies to return
-        # Fibonacci
-        n = 1000
-        # The One-Liner
-        reduce(lambda x, _: x + [x[-2] + x[-1]], [0] * (n-2), [0, 1])
-        indices = random.sample(range(num_products), num_return)
+        user_id = 1 + int(hashlib.sha1(request.user_id.encode("utf-8")
+                                       ).hexdigest(), 16) % train_users
+
+        predictions = compute_ranking_predictions(
+            model, test[test['userID'] == user_id], usercol='userID', itemcol='itemID')
+        # logger.info(predictions)
+        # logger.info(prediction.head())
+        # indices = random.sample(range(num_products), num_return)
         # fetch product ids from indices
-        prod_list = [filtered_products[i] for i in indices]
+        # prod_list = [filtered_products[i] for i in indices]
+        prod_list = ['1YMWWN1N4O', 'L9ECAV7KIM',
+                     'LS4PSXUNUM', '9SIQT8TOJO', 'OLJCESPC7Z']
         logger.info(
             "[Recv ListRecommendations] product_ids={}".format(prod_list))
         # build and return response

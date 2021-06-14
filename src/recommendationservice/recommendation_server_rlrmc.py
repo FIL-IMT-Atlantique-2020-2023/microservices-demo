@@ -35,7 +35,92 @@ import demo_pb2_grpc
 from grpc_health.v1 import health_pb2
 from grpc_health.v1 import health_pb2_grpc
 
+import logging
+import numpy as np
+import pandas as pd
+import hashlib
+from sklearn.preprocessing import minmax_scale
+
+from reco_utils.common.python_utils import binarize
+from reco_utils.common.timer import Timer
+from reco_utils.dataset import movielens
+from reco_utils.dataset.python_splitters import python_stratified_split
+from reco_utils.evaluation.python_evaluation import (
+    map_at_k,
+    ndcg_at_k,
+    precision_at_k,
+    recall_at_k,
+    rmse,
+    mae,
+    logloss,
+    rsquared,
+    exp_var
+)
+from reco_utils.recommender.sar import SAR
+from reco_utils.recommender.rlrmc.RLRMCalgorithm import RLRMCalgorithm
+from reco_utils.recommender.rlrmc.RLRMCdataset import RLRMCdataset
+from reco_utils.evaluation.python_evaluation import (
+    rmse, mae
+)
+import sys
+
 from logger import getJSONLogger
+
+# top k items to recommend
+TOP_K = 10
+
+# Select MovieLens data size: 100k, 1m, 10m, or 20m
+MOVIELENS_DATA_SIZE = '100k'
+
+# Model parameters
+
+# rank of the model, a positive integer (usually small), required parameter
+rank_parameter = 10
+# regularization parameter multiplied to loss function, a positive number (usually small), required parameter
+regularization_parameter = 0.001
+# initialization option for the model, 'svd' employs singular value decomposition, optional parameter
+initialization_flag = 'svd'  # default is 'random'
+# maximum number of iterations for the solver, a positive integer, optional parameter
+maximum_iteration = 100  # optional, default is 100
+# maximum time in seconds for the solver, a positive integer, optional parameter
+maximum_time = 300  # optional, default is 1000
+
+# Verbosity of the intermediate results
+verbosity = 0  # optional parameter, valid values are 0,1,2, default is 0
+# Whether to compute per iteration train RMSE (and test RMSE, if test data is given)
+compute_iter_rmse = True  # optional parameter, boolean value, default is False
+
+data = movielens.load_pandas_df(
+    size=MOVIELENS_DATA_SIZE,
+    header=["userID", "itemID", "rating", "timestamp"]
+)
+
+
+# Convert the float precision to 32-bit in order to reduce memory consumption
+data['rating'] = data['rating'].astype(np.float32)
+
+train, test = python_stratified_split(
+    data, ratio=0.75, col_user='userID', col_item='itemID', seed=42)
+
+train_users = len(train['userID'].unique())
+
+data = RLRMCdataset(train=train, test=test)
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)-8s %(message)s')
+
+model = RLRMCalgorithm(rank=rank_parameter,
+                       C=regularization_parameter,
+                       model_param=data.model_param,
+                       initialize_flag=initialization_flag,
+                       maxiter=maximum_iteration,
+                       max_time=maximum_time)
+
+with Timer() as train_time:
+    model.fit(data)
+
+print("Took {} seconds for training.".format(train_time.interval))
+
 logger = getJSONLogger('recommendationservice-server')
 
 
@@ -72,21 +157,24 @@ def initStackdriverProfiling():
 
 class RecommendationService(demo_pb2_grpc.RecommendationServiceServicer):
     def ListRecommendations(self, request, context):
-        max_responses = 5
+        # max_responses = 5
         # fetch list of products from product catalog stub
         cat_response = product_catalog_stub.ListProducts(demo_pb2.Empty())
         product_ids = [x.id for x in cat_response.products]
         filtered_products = list(set(product_ids)-set(request.product_ids))
+        logger.info(request)
         num_products = len(filtered_products)
-        num_return = min(max_responses, num_products)
+        # num_return = min(max_responses, num_products)
         # sample list of indicies to return
-        # Fibonacci
-        n = 1000
-        # The One-Liner
-        reduce(lambda x, _: x + [x[-2] + x[-1]], [0] * (n-2), [0, 1])
-        indices = random.sample(range(num_products), num_return)
+        user_id = 1 + int(hashlib.sha1(request.user_id.encode("utf-8")
+                                       ).hexdigest(), 16) % train_users
+        prediction = model.predict(test['userID'], test['itemID'])
+        # logger.info(prediction.head())
+        # indices = random.sample(range(num_products), num_return)
         # fetch product ids from indices
-        prod_list = [filtered_products[i] for i in indices]
+        # prod_list = [filtered_products[i] for i in indices]
+        prod_list = ['1YMWWN1N4O', 'L9ECAV7KIM',
+                     'LS4PSXUNUM', '9SIQT8TOJO', 'OLJCESPC7Z']
         logger.info(
             "[Recv ListRecommendations] product_ids={}".format(prod_list))
         # build and return response

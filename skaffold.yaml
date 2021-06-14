@@ -30,6 +30,14 @@ build:
       context: src/recommendationservice
       docker:
         dockerfile: fibonacci.Dockerfile
+    - image: recommendationservice-sar
+      context: src/recommendationservice
+      docker:
+        dockerfile: sar.Dockerfile
+    - image: recommendationservice-svd
+      context: src/recommendationservice
+      docker:
+        dockerfile: svd.Dockerfile
     - image: shippingservice
       context: src/shippingservice
     - image: checkoutservice
