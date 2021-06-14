@@ -1,0 +1,26 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+# Pull request against these branches will trigger this build
+pr:
+- main
+- staging
+
+# Any commit to this branch will trigger the build.
+trigger:
+- staging
+- main
+
+variables:
+- group: LinuxAgentPool
+
+extends:
+  template: dsvm_linux_template.yml
+  parameters:
+    test_types:
+    - unit
+    task_name: "Test - Unit Notebook Linux Spark"
+    conda_env: "unit_notebook_linux_spark"
+    conda_opts: "python=3.6"
+    pip_opts: "[spark,examples]"
+    pytest_markers: "notebooks and spark and not gpu"
