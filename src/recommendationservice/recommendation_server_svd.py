@@ -89,7 +89,7 @@ print("Took {} seconds for training.".format(train_time.interval))
 
 logger = getJSONLogger('recommendationservice-server')
 
-print("SVD")
+logger.info("SVD")
 
 
 def initStackdriverProfiling():
