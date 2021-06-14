@@ -80,7 +80,6 @@ train_set = surprise.Dataset.load_from_df(
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)-8s %(message)s')
-
 model = surprise.SVD(random_state=0, n_factors=200, n_epochs=30, verbose=True)
 
 with Timer() as train_time:
@@ -89,6 +88,8 @@ with Timer() as train_time:
 print("Took {} seconds for training.".format(train_time.interval))
 
 logger = getJSONLogger('recommendationservice-server')
+
+print("SVD")
 
 
 def initStackdriverProfiling():
