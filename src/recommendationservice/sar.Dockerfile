@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM python:3.7-slim
+FROM python:3.7.9-slim
 RUN apt-get update -qqy && \
-    apt-get -qqy install wget g++ && \
+    apt-get -qqy install wget g++ cmake && \
     rm -rf /var/lib/apt/lists/*
 # show python logs as they occur
 ENV PYTHONUNBUFFERED=0
@@ -28,8 +28,10 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.3.6 && \
 WORKDIR /recommendationservice
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
-RUN pip install .
 
+COPY reco_utils reco_utils
+COPY setup.py setup.py
+RUN pip install .
 
 # add files into working directory
 COPY . .
